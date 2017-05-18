@@ -1,0 +1,71 @@
+---
+title: "BetaFANG"
+author: "Romain Cosandey"
+date: "May 17, 2017"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## General Description
+
+The goal of this tool is to calculate the sensitivity (Beta) of a single name stock price relatively to the NASDAQ Index.
+
+DEFINITION : Beta is a measure of the volatility, or systematic risk, of a security or a portfolio in comparison to the market as a whole. A beta of 1 indicates that the security's price moves with the market. A beta of less than 1 means that the security is theoretically less volatile than the market. A beta of greater than 1 indicates that the security's price is theoretically more volatile than the market .
+
+![](beta.png)
+
+## General Description (cont'd)
+
+METHODOLOGY : The Beta of a stock is obtained by linear regression with retunrs of the stock as output and returns of the index as predictor (here NASDAQ)
+
+USAGE: please start by picking a FANG stock name in the dropdown box. Select the time period you would like to analyze by using the date slider. The scatter plot will show the returns of the index (X axis) compared to the return of the selected stock (Y axis). The line is showing the result of the linear regression with Beta = slope and Alpha = Intercept
+
+## How the app is working (User interface)
+In the sidebar panel, 2 input controllers are available
+
+- a `selectInput` control that allows the user to choose the name of the stock
+- a date `sliderInput` control to select the period the user would like to analyze
+
+In the main panel, 2 output objects are available
+
+- a `plotlyOutput` to show the historical returns of the stock versus the index in a scatterplot
+- a `textOuput` to show the resulting Beta of the stock over the selected period
+
+## How the app is working (Server)
+
+On the server side, the calculations are performed using the following steps:
+
+- Read the stock and index prices data from csv files
+```{r}
+FANG <- read.csv("FANG.csv")
+NDX <- read.csv("NDX.csv")
+```
+- Calculate the arithmetic returns from absolute prices
+```{r}
+n <- nrow(FANG)
+FANG_r <- (FANG[2:n,2:5]-FANG[1:n-1,2:5])/FANG[1:n-1,2:5]
+FANG_r$Date <- as.Date(FANG$Date[2:n],"%m/%d/%Y")
+NDX_r <- data.frame((NDX[2:n,2]-NDX[1:n-1,2])/NDX[1:n-1,2])
+NDX_r$Date <- as.Date(NDX$Date[2:n],"%m/%d/%Y")
+```
+- Create a subset of data given the input dates from the slider (reactive function)
+
+##
+
+```{r, eval=FALSE}
+    index_date <- reactive({
+        with(NDX_r, (Date >= input$DateSlider[1] & Date <= input$DateSlider[2]))
+    })
+```
+- Fit a linear model with stock return (selected from selectinput) as output and index return as predictor (reactive function)
+```{r, eval =FALSE}
+    modFit <- reactive({
+        idx <- index_date()
+        lm(FANG_r[idx,as.numeric(input$stock)]~NDX_r[idx,1])
+    })
+```
+
+- update the scatterplot and the text output (beta)
